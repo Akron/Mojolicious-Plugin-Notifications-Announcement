@@ -1,0 +1,22 @@
+=pod
+
+=head1 NAME
+
+Mojolicious::Plugin::ServiceAnnouncements - Frontend Service Announcements
+
+
+=head1 SYNOPSIS
+
+  # Mojolicious
+  $app->plugin(ServiceAnnouncements => [
+    {
+      msg => 'We have a new feature, <%= stash 'user_name' %>!'
+    },
+    {
+      msg => 'We have updated our privacy policy!'
+    }
+  ]);
+
+  # Mojolicious::Lite
+  plugin 'ServiceAnnouncements';
+
