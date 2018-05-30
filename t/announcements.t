@@ -4,65 +4,79 @@ use Test::More;
 use Mojolicious::Lite;
 use Test::Mojo;
 
-plugin 'ServiceAnnouncements' => [
+plugin 'Notifications' => {
+  JSON => 1
+};
+
+# Load from config
+plugin Config => {
+  default => {
+    'Notifications-Announcement' => [
+      {
+        msg => 'Dear user, first'
+      }
+    ]
+  }
+};
+
+
+# Load on registration
+plugin 'Notifications::Announcement' => [
   {
     id => 'ann-2018-05-24',
-    msg => 'Dear <%= stash "user" %>, we want to inform you ...'
-  },
-  {
-    msg => 'Dear user, first'
+    msg => 'Dear <%= stash "user" %>, we want to inform you ...',
+    type => 'info' # Notification type
   }
 ];
 
+
+# Set some stash values
 app->defaults(
   user => 'Akron'
 );
 
+
+# Establish check callback
+app->callback(
+  check_announcement => sub {
+    my ($c, $ann) = @_;
+    return 1 if $c->session('n!' . $ann->{id});
+    return;
+  });
+
+app->callback(
+  set_announcement => sub {
+    my ($c, $ann) = @_;
+    $c->session('n!' . $ann->{id} => 1);
+    return;
+  });
+
+
+# Example route
 get '/' => sub {
   my $c = shift;
-  $c->render(inline => <<TEMPLATE);
-Here are announcements
-
-<ul>
-%= announce_for stash('user'), begin
-  <li><%= stash 'announce.msg' %></li>
-% end
-</ul>
-TEMPLATE
+  return $c->render(json => $c->notifications(json => { 'msg' => 'Hello!'}));
 };
 
 
-my %announcements = ();
-
-# Set key
-app->callback(
-  check_service_announcement_for => sub {
-    my ($c, $id) = @_;
-    return $announcements{$id};
-  }
-);
-
-# Set key
-app->callback(
-  set_service_announcement_for => sub {
-    my ($c, $id, $value) = @_;
-    return $announcements{$id} = $value;
-  }
-);
-
-
 my $t = Test::Mojo->new;
+
+# First call with announcements
 $t->get_ok('/')
-  ->status_is(200)
-  ->content_like(qr/announcements/)
-  ->text_like('ul > li:nth-of-type(1)', qr/Dear Akron, we want to inform/)
-  ->text_like('ul > li:nth-of-type(2)', qr/Dear user, first/)
+  ->json_is('/msg', 'Hello!')
+  ->json_is('/notifications/0/0', 'info')
+  ->json_is('/notifications/0/1', 'Dear Akron, we want to inform you ...')
+  ->json_is('/notifications/1/0', 'announce')
+  ->json_is('/notifications/1/1', 'Dear user, first')
   ;
 
+# Second call without announcements
 $t->get_ok('/')
-  ->status_is(200)
-  ->content_like(qr/announcements/)
-  ->element_exists_not('ul > li')
+  ->json_is('/msg', 'Hello!')
+  ->json_hasnt('/notifications')
   ;
 
-done_testing();
+
+
+done_testing;
+__END__
