@@ -1,14 +1,16 @@
 =pod
 
+=encoding utf8
+
 =head1 NAME
 
-Mojolicious::Plugin::ServiceAnnouncements - Frontend Service Announcements
+Mojolicious::Plugin::Notifications::Announcement - Frontend Service Announcements
 
 
 =head1 SYNOPSIS
 
   # Mojolicious
-  $app->plugin(ServiceAnnouncements => [
+  $app->plugin('Notifications::Announcement' => [
     {
       msg => 'We have a new feature, <%= stash 'user_name' %>!'
     },
@@ -18,5 +20,95 @@ Mojolicious::Plugin::ServiceAnnouncements - Frontend Service Announcements
   ]);
 
   # Mojolicious::Lite
-  plugin 'ServiceAnnouncements';
+  plugin 'Notifications::Announcement';
 
+
+=head1 DESCRIPTION
+
+L<Mojolicious::Plugin::Notifications::Announcement> uses
+L<Mojolicious::Plugin::Notifications> to present service announcements
+to users.
+
+=head1 METHODS
+
+=head2 register
+
+  # Mojolicious
+  $app->plugin('Notifications::Announcement' => [
+    {
+      msg => 'We have a new feature, <%= stash 'user_name' %>!'
+    },
+    {
+      msg => 'We have updated our privacy policy!',
+      id => 'abcde054321'
+    }
+  ]);
+
+Called when registering the plugin.
+
+Accepts an optional array of announcements, that at least require a C<msg>
+field, that is treated as an inline L<Mojo::Template>.
+
+Announcements can be set as part of the configuration
+file with the key C<Notifications-Announcement> or on registration
+(that will be merged with the announcement list from the configuration).
+
+Announcements are ensured to have a valid C<id> information as well.
+If not set, it will be added as a checksum of all announcement attributes.
+Further attributes can be set and will be passed to the callbacks.
+
+
+=head1 CALLBACKS
+
+=head2 check_announcement
+
+  app->callback(
+    check_announcement => sub {
+      my ($c, $ann) = @_;
+      return 1 if $c->session('n!' . $ann->{id});
+      return;
+    });
+
+This callback is released to check if an announcement should
+be received or not. Expects a positive
+return value, if the announcement should not be received,
+otherwise it's send.
+Passes the current controller and the announcement object
+with all parameters, at least C<msg> and C<id>.
+
+=head2 set_announcement
+
+  app->callback(
+    set_announcement => sub {
+      my ($c, $ann) = @_;
+      $c->session('n!' . $ann->{id} => 1);
+      return;
+    });
+
+This callback is released after an announcement was served.
+Passes the current controller and the announcement object
+with all parameters, at least C<msg> and C<id>.
+
+B<This callback is EXPERIMENTAL and may be replaced with
+a hook>
+
+
+=head1 DEPENDENCIES
+
+L<Mojolicious>, L<Mojolicious::Plugin::Util::Callback>,
+L<Mojolicious::Plugin::Notifications>.
+
+
+=head1 AVAILABILITY
+
+  https://github.com/Akron/Mojolicious-Plugin-Notifications-Announcement
+
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2018, L<Nils Diewald|https://nils-diewald.de/>.
+
+This program is free software, you can redistribute it
+and/or modify it under the terms of the Artistic License version 2.0.
+
+=cut
