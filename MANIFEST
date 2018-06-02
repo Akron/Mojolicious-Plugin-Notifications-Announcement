@@ -1,0 +1,6 @@
+lib/Mojolicious/Plugin/Notifications/Announcement.pm
+t/announcements.t
+Changes
+MANIFEST
+LICENSE
+Makefile.PL

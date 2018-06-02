@@ -3,6 +3,8 @@ use Mojo::Base 'Mojolicious::Plugin';
 use Mojo::Util qw/b64_encode sha1_sum trim/;
 use Mojo::ByteStream 'b';
 
+our $VERSION = '0.01';
+
 # TODO:
 #   - 'confirm'
 #     click on 'ok' or 'cancel'
@@ -12,7 +14,6 @@ use Mojo::ByteStream 'b';
 
 # -> How can this be done? A javascript needs to send a POST
 #    to the confirmation route
-
 
 # Register the plugin
 sub register {
