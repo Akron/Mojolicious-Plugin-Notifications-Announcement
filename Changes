@@ -1,2 +1,6 @@
+0.02 2018-06-04
+        - Deprecated set_announcement callback
+          in favor of after_announcement hook.
+
 0.01 2018-06-02
         - Initial submission to GitHub.

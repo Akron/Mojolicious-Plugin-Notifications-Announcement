@@ -3,7 +3,7 @@ use Mojo::Base 'Mojolicious::Plugin';
 use Mojo::Util qw/b64_encode sha1_sum trim/;
 use Mojo::ByteStream 'b';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 # TODO:
 #   - 'confirm'
@@ -84,8 +84,14 @@ sub register {
         # Set announcement to be read
         # TODO:
         #   This needs to be modified for 'confirm' type
+        # DEPRECATED!
         $c->callback(
           set_announcement => $ann
+        );
+
+        # Hook for caching
+        $c->app->plugins->emit_hook(
+          after_announcement => ($c, $ann)
         );
       };
     }) if @$anns;
@@ -175,21 +181,19 @@ otherwise it's send.
 Passes the current controller and the announcement object
 with all parameters, at least C<msg> and C<id>.
 
-=head2 set_announcement
+=head1 HOOKS
 
-  app->callback(
-    set_announcement => sub {
+=head2 after_announcement
+
+  app->hook(
+    after_announcement => sub {
       my ($c, $ann) = @_;
       $c->session('n!' . $ann->{id} => 1);
-      return;
     });
 
-This callback is released after an announcement was served.
+This hook is run after an announcement was served.
 Passes the current controller and the announcement object
 with all parameters, at least C<msg> and C<id>.
-
-B<This callback is EXPERIMENTAL and may be replaced with
-a hook>
 
 
 =head1 DEPENDENCIES

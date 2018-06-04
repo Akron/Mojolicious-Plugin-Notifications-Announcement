@@ -44,8 +44,8 @@ app->callback(
     return;
   });
 
-app->callback(
-  set_announcement => sub {
+app->hook(
+  after_announcement => sub {
     my ($c, $ann) = @_;
     $c->session('n!' . $ann->{id} => 1);
     return;
