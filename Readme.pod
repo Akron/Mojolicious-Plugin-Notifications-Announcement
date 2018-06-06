@@ -55,7 +55,10 @@ file with the key C<Notifications-Announcement> or on registration
 
 Announcements are ensured to have a valid C<id> information as well.
 If not set, it will be added as a checksum of all announcement attributes.
+
 Further attributes can be set and will be passed to the callbacks.
+The C<type> attribute will be used as the notification type to
+L<Mojolicious::Plugin::Notifications/notify>, defaults to C<announce>.
 
 
 =head1 CALLBACKS
@@ -76,21 +79,19 @@ otherwise it's send.
 Passes the current controller and the announcement object
 with all parameters, at least C<msg> and C<id>.
 
-=head2 set_announcement
+=head1 HOOKS
 
-  app->callback(
-    set_announcement => sub {
+=head2 after_announcement
+
+  app->hook(
+    after_announcement => sub {
       my ($c, $ann) = @_;
       $c->session('n!' . $ann->{id} => 1);
-      return;
     });
 
-This callback is released after an announcement was served.
+This hook is run after an announcement was served.
 Passes the current controller and the announcement object
 with all parameters, at least C<msg> and C<id>.
-
-B<This callback is EXPERIMENTAL and may be replaced with
-a hook>
 
 
 =head1 DEPENDENCIES

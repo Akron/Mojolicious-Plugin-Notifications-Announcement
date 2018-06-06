@@ -1,5 +1,6 @@
 lib/Mojolicious/Plugin/Notifications/Announcement.pm
 t/announcements.t
+t/announcements-confirm.t
 Changes
 MANIFEST
 LICENSE

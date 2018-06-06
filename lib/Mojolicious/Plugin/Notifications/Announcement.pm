@@ -2,12 +2,11 @@ package Mojolicious::Plugin::Notifications::Announcement;
 use Mojo::Base 'Mojolicious::Plugin';
 use Mojo::Util qw/b64_encode sha1_sum trim/;
 use Mojo::ByteStream 'b';
+use List::Util qw/none/;
 
 our $VERSION = '0.02';
 
 # TODO:
-#   - 'confirm'
-#     click on 'ok' or 'cancel'
 #   - 'seen'
 #     requires the announcement to be displayed
 #     to the user (ensured via JS) and then POSTed to the confirmation endpoint
@@ -21,6 +20,8 @@ sub register {
 
   $anns ||= [];
 
+  my ($ok_route, $cancel_route);
+
   # Load parameter from Config file
   if (my $config_anns = $app->config('Notifications-Announcement')) {
     push @$anns, @$config_anns;
@@ -32,6 +33,37 @@ sub register {
   # Load Util-Callback and Notifications if not already loaded
   $app->plugin('Util::Callback') unless exists $helpers->{'callback'};
   $app->plugin('Notifications') unless exists $helpers->{'notify'};
+
+  # This is a separate hash to access announcements by id
+  my %ann_by_id;
+
+  # TODO:
+  #   Enhance with CSRF token!
+
+  # Predefine confirmation route as it is used twice
+  my $confirmation_route = sub {
+    my $c = shift;
+    my $ann_id = $c->param('aid');
+
+    # Is the announcement confirmed or canceled
+    my $confirmed = $c->stash('confirmed');
+
+    # Check for annotation based on id
+    my $ann = $ann_by_id{$ann_id};
+
+    # There is an annotation defined by that id ...
+    if ($ann) {
+      $c->app->plugins->emit_hook(
+        'after_announcement_' . ($confirmed ? 'ok' : 'cancel') => ($c, $ann)
+      );
+    };
+
+    # ... otherwise ignore ignore!
+    $c->render(
+      status => 200,
+      text => 'Announcement ' . ($confirmed ? 'confirmed' : 'canceled')
+    );
+  };
 
   # Create a short hash based id for the announcement, if not yet defined
   for (my $i = 0; $i < @$anns; $i++) {
@@ -45,19 +77,62 @@ sub register {
     };
 
     # Ignore announcement if it already has an identifier
-    next if $ann->{id};
+    unless ($ann->{id}) {
 
-    my $str = '';
+      my $str = '';
 
-    # Stringify hash
-    foreach my $key (sort keys %$ann) {
-      $str .= b64_encode($key) . '~' . b64_encode($ann->{$key} // '') . '~';
+      # Stringify hash
+      foreach my $key (sort keys %$ann) {
+        $str .= b64_encode($key) . '~' . b64_encode($ann->{$key} // '') . '~';
+      };
+
+      # Add hash based id to announcement
+      $ann->{id} = sha1_sum($str);
     };
 
-    # Add hash based id to announcement
-    $ann->{id} = sha1_sum($str);
+    # Remember the id
+    $ann_by_id{$ann->{id}} = $ann;
   };
 
+
+  # Add announcements shortcut
+  my $route = 'announcements';
+  $app->routes->add_shortcut(
+    $route => sub {
+      my $r = shift;
+      my $type = shift;
+
+      # Check names
+      if ($type ne 'ok' && $type ne 'cancel') {
+        $app->log->error("Undefined route type for $route");
+        return;
+      };
+
+      # Check methods
+      if (none { $_ =~ m!^POST$!i } @{$r->via}) {
+        $app->log->error("Route method for $route needs to support POST");
+        return;
+      };
+
+      # Set name
+      $r = $r->name($route . '_' . $type);
+
+      # Treat confirmation
+      if ($type eq 'ok') {
+        # Define confirmation route
+        $r->to(confirmed => 1, cb => $confirmation_route);
+        $ok_route = 1;
+      }
+
+      # Treat cancellation
+      elsif ($type eq 'cancel') {
+
+        # Define cancelation route
+        $r->to(confirmed => 0, cb => $confirmation_route);
+        $cancel_route = 1;
+      };
+    }
+  );
 
   # Use notifications hook to add notification
   $app->hook(
@@ -78,21 +153,54 @@ sub register {
 
         my $type = $ann->{type} // 'announce';
 
-        # Send announcement
-        $c->notify($type => $msg);
+        # Send an announcement that requires confirmation
+        if ($type eq 'confirm') {
+          my %param = ();
 
-        # Set announcement to be read
-        # TODO:
-        #   This needs to be modified for 'confirm' type
-        # DEPRECATED!
-        $c->callback(
-          set_announcement => $ann
-        );
+          my $r = $c->app->routes;
 
-        # Hook for caching
-        $c->app->plugins->emit_hook(
-          after_announcement => ($c, $ann)
-        );
+          # Get ok route
+          $param{ok} = $c->url_for($route . '_ok')->query(aid => $ann->{id})->to_abs
+            if $ok_route;
+
+          # Get cancel route
+          $param{cancel} = $c->url_for($route . '_cancel')->query(aid => $ann->{id})->to_abs
+            if $cancel_route;
+
+          # The confirmation routes are not defined
+          if (!$param{ok} && !$param{cancel}) {
+            $c->app->log->error('Confirmation routes undefined for ' . __PACKAGE__);
+            return;
+          };
+
+          # Send notification
+          $c->notify($type => \%param => $msg);
+        }
+
+        # Send an announcement that requires no confirmation
+        else {
+
+          # Send announcement
+          $c->notify($type => $msg);
+
+          # Set announcement to be read
+          # TODO:
+          #   This needs to be modified for 'confirm' type
+          # DEPRECATED!
+          $c->callback(
+            set_announcement => $ann
+          );
+
+          # DEPRECATED!
+          $c->app->plugins->emit_hook(
+            after_announcement => ($c, $ann)
+          );
+
+          # Immediately seen
+          $c->app->plugins->emit_hook(
+            after_announcement_ok => ($c, $ann)
+          );
+        };
       };
     }) if @$anns;
 };
@@ -134,6 +242,8 @@ L<Mojolicious::Plugin::Notifications::Announcement> uses
 L<Mojolicious::Plugin::Notifications> to present service announcements
 to users.
 
+B<WARNING: This module is stil in early development - don't use it for now!>
+
 =head1 METHODS
 
 =head2 register
@@ -160,7 +270,10 @@ file with the key C<Notifications-Announcement> or on registration
 
 Announcements are ensured to have a valid C<id> information as well.
 If not set, it will be added as a checksum of all announcement attributes.
+
 Further attributes can be set and will be passed to the callbacks.
+The C<type> attribute will be used as the notification type to
+L<Mojolicious::Plugin::Notifications/notify>, defaults to C<announce>.
 
 
 =head1 CALLBACKS

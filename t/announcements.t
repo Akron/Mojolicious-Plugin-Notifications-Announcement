@@ -25,7 +25,7 @@ plugin 'Notifications::Announcement' => [
   {
     id => 'ann-2018-05-24',
     msg => 'Dear <%= stash "user" %>, we want to inform you ...',
-    type => 'info' # Notification type
+    type => 'info'
   }
 ];
 
