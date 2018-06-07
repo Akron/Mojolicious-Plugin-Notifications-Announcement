@@ -1,3 +1,9 @@
+0.03 2018-06-07
+        - Deprecated after_announcement hook
+          in favor of after_announcement_ok hook.
+        - Support announcements that require
+          confirmations.
+
 0.02 2018-06-04
         - Deprecated set_announcement callback
           in favor of after_announcement hook.

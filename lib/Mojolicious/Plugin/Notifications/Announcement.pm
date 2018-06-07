@@ -4,15 +4,22 @@ use Mojo::Util qw/b64_encode sha1_sum trim/;
 use Mojo::ByteStream 'b';
 use List::Util qw/none/;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
+
+# TODO:
+#   Enhance with CSRF token!
+
+# TODO:
+#   Accept ok, ok_label, cancel, cancel_label to override in
+#   confirmation announcements. These however also needs to be templates to
+#   support localization.
 
 # TODO:
 #   - 'seen'
 #     requires the announcement to be displayed
 #     to the user (ensured via JS) and then POSTed to the confirmation endpoint
-
-# -> How can this be done? A javascript needs to send a POST
-#    to the confirmation route
+#     -> How can this be done? A javascript needs to send a POST
+#        to the confirmation route
 
 # Register the plugin
 sub register {
@@ -37,13 +44,20 @@ sub register {
   # This is a separate hash to access announcements by id
   my %ann_by_id;
 
-  # TODO:
-  #   Enhance with CSRF token!
-
   # Predefine confirmation route as it is used twice
   my $confirmation_route = sub {
     my $c = shift;
     my $ann_id = $c->param('aid');
+
+    # Method needs to be post
+    if ($c->req->method ne 'POST') {
+
+      # TODO: Correct error message
+      $c->render(
+        status => 200,
+        text => 'Announcement confirmation requires POST'
+      );
+    };
 
     # Is the announcement confirmed or canceled
     my $confirmed = $c->stash('confirmed');
@@ -58,7 +72,7 @@ sub register {
       );
     };
 
-    # ... otherwise ignore ignore!
+    # ... otherwise ignore!
     $c->render(
       status => 200,
       text => 'Announcement ' . ($confirmed ? 'confirmed' : 'canceled')
@@ -184,8 +198,7 @@ sub register {
           $c->notify($type => $msg);
 
           # Set announcement to be read
-          # TODO:
-          #   This needs to be modified for 'confirm' type
+
           # DEPRECATED!
           $c->callback(
             set_announcement => $ann
@@ -196,7 +209,7 @@ sub register {
             after_announcement => ($c, $ann)
           );
 
-          # Immediately seen
+          # Immediately confirmed
           $c->app->plugins->emit_hook(
             after_announcement_ok => ($c, $ann)
           );
@@ -222,27 +235,35 @@ Mojolicious::Plugin::Notifications::Announcement - Frontend Service Announcement
 
 =head1 SYNOPSIS
 
-  # Mojolicious
-  $app->plugin('Notifications::Announcement' => [
-    {
-      msg => 'We have a new feature, <%= stash 'user_name' %>!'
-    },
-    {
-      msg => 'We have updated our privacy policy!'
-    }
-  ]);
+  # In Mojolicious Lite
+  plugin 'Notifications::Announcement' => [{
+    msg => 'We have a new feature, <%= stash 'user_name' %>!'
+  }];
 
-  # Mojolicious::Lite
-  plugin 'Notifications::Announcement';
+  # Check if announcement was already read
+  callback check_announcement => sub {
+    my ($c, $ann) = @_;
+    return 1 if $c->session('read-' . $ann->{id});
+    return;
+  };
 
+  # Confirm that the announcement was read
+  hook after_announcement_ok => sub {
+    my ($c, $ann) = @_;
+    $c->session('read-' . $ann->{id} => 1);
+  }
+
+  # In templates
+  %= notifications 'Alertify'
 
 =head1 DESCRIPTION
 
 L<Mojolicious::Plugin::Notifications::Announcement> uses
 L<Mojolicious::Plugin::Notifications> to present service announcements
-to users.
+to users with specific requirements, e.g. confirmation or to be seen only once.
 
-B<WARNING: This module is stil in early development - don't use it for now!>
+B<WARNING: This module is still in early development - don't use it for now!>
+
 
 =head1 METHODS
 
@@ -255,7 +276,7 @@ B<WARNING: This module is stil in early development - don't use it for now!>
     },
     {
       msg => 'We have updated our privacy policy!',
-      id => 'abcde054321'
+      type => 'confirm'
     }
   ]);
 
@@ -273,7 +294,9 @@ If not set, it will be added as a checksum of all announcement attributes.
 
 Further attributes can be set and will be passed to the callbacks.
 The C<type> attribute will be used as the notification type to
-L<Mojolicious::Plugin::Notifications/notify>, defaults to C<announce>.
+L<Mojolicious::Plugin::Notifications/notify> and defaults to C<announce>.
+
+In case the type is C<confirm>, confirmation routes will be established.
 
 
 =head1 CALLBACKS
@@ -288,25 +311,58 @@ L<Mojolicious::Plugin::Notifications/notify>, defaults to C<announce>.
     });
 
 This callback is released to check if an announcement should
-be received or not. Expects a positive
-return value, if the announcement should not be received,
-otherwise it's send.
+be served or not. Expects a positive
+return value, if the announcement should not be served
+(e.g. because it already was served to the user),
+otherwise it is send.
 Passes the current controller and the announcement object
 with all parameters, at least C<msg> and C<id>.
 
+
 =head1 HOOKS
 
-=head2 after_announcement
+=head2 after_announcement_ok
 
   app->hook(
-    after_announcement => sub {
+    after_announcement_ok => sub {
       my ($c, $ann) = @_;
       $c->session('n!' . $ann->{id} => 1);
     });
 
-This hook is run after an announcement was served.
+This hook is run after an announcement was accepted,
+that is either served or confirmed if required.
 Passes the current controller and the announcement object
 with all parameters, at least C<msg> and C<id>.
+
+
+=head2 after_announcement_cancel
+
+  app->hook(
+    after_announcement_cancel => sub {
+      my ($c, $ann) = @_;
+      $c->session('n!' . $ann->{id} => 1);
+    });
+
+This hook is run after an announcement was canceled
+in case confirmation is required.
+Passes the current controller and the announcement object
+with all parameters, at least C<msg> and C<id>.
+
+
+=head1 SHORTCUT
+
+=head2 announcements
+
+  # In Mojolicious::Lite
+  post('/confirm/ok')->announcements('ok');
+  post('/confirm/cancel')->announcements('cancel');
+
+Establish announcement routes for confirmation
+and cancellation of announcements requiring confirmation.
+Accepts the route type as a string parameter
+(either C<ok> or C<cancel>).
+
+The shortcut requires routes that accept the C<POST> method.
 
 
 =head1 DEPENDENCIES
@@ -323,6 +379,13 @@ L<Mojolicious::Plugin::Notifications>.
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2018, L<Nils Diewald|https://nils-diewald.de/>.
+
+L<Mojolicious::Plugin::Notifications::Announcement> is developed as
+part of the [KorAP](http://korap.ids-mannheim.de/)
+Corpus Analysis Platform at the
+[Institute for the German Language (IDS)](http://ids-mannheim.de/),
+member of the
+[Leibniz-Gemeinschaft](http://www.leibniz-gemeinschaft.de/en/about-us/leibniz-competition/projekte-2011/2011-funding-line-2/).
 
 This program is free software, you can redistribute it
 and/or modify it under the terms of the Artistic License version 2.0.

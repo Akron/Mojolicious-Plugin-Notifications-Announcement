@@ -4,8 +4,6 @@ use Test::More;
 use Mojolicious::Lite;
 use Test::Mojo;
 
-$|=2;
-
 plugin 'Notifications' => {
   HTML => 1
 };
@@ -27,21 +25,20 @@ app->callback(
     return;
   });
 
-app->hook(
-  after_announcement_ok => sub {
-    my ($c, $ann) = @_;
-    $c->session('n!' . $ann->{id} => 1);
-    return;
-  });
+my (@cancel, @ok) = ();
 
-my @cancel = ();
+hook after_announcement_ok => sub {
+  my ($c, $ann) = @_;
+  $c->session('n!' . $ann->{id} => 1);
+  push @ok, $ann->{id};
+  return;
+};
 
-app->hook(
-  after_announcement_cancel => sub {
-    my ($c, $ann) = @_;
-    push @cancel, 'cancelled ' . $ann->{id};
-    return;
-  });
+hook after_announcement_cancel => sub {
+  my ($c, $ann) = @_;
+  push @cancel, 'cancelled ' . $ann->{id};
+  return;
+};
 
 # Example route
 get '/' => sub {
@@ -84,6 +81,39 @@ my $action = $t->get_ok('/')
   ->tx->res->dom->at('form')->attr('action');
 
 like($action, qr!/confirm\?aid=ann-2018-05-24!, 'Path is correct');
+
+is(scalar @ok, 0, 'No ok');
+is(scalar @cancel, 0, 'No canceled');
+
+# Get is not supported
+$t->get_ok($action)
+  ->status_is(404)
+  ;
+
+# Confirmation request still valid
+$t->get_ok('/')
+  ->status_is(200)
+  ->text_is('div.notify-confirm', 'Please confirm!')
+  ->text_is('div.notify-confirm form[method=post] button.ok', 'OK')
+  ->element_exists_not('div.notify-confirm form[method=post] button.cancel')
+  ;
+
+# Post is supported
+$t->post_ok($action)
+  ->status_is(200)
+  ->content_is('Announcement confirmed')
+  ;
+
+is(scalar @ok, 1, '1 ok');
+is($ok[0], 'ann-2018-05-24', '1 ok');
+is(scalar @cancel, 0, 'No canceled');
+
+# Notification is no longer needed
+$t->get_ok('/')
+  ->status_is(200)
+  ->content_is("\n")
+  ;
+
 
 done_testing;
 

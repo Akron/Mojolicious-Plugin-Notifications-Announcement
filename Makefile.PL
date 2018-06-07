@@ -14,7 +14,8 @@ WriteMakefile(
   PREREQ_PM    => {
     'Mojolicious' => '7.79',
     'Mojolicious::Plugin::Util::Callback' => '0.05',
-    'Mojolicious::Plugin::Notifications' => '1.03'
+    'Mojolicious::Plugin::Notifications' => '1.03',
+    'List::Util' => 0
   },
   META_MERGE   => {
     requires  => {
