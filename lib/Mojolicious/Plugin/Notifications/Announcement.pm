@@ -381,11 +381,11 @@ L<Mojolicious::Plugin::Notifications>.
 Copyright (C) 2018, L<Nils Diewald|https://nils-diewald.de/>.
 
 L<Mojolicious::Plugin::Notifications::Announcement> is developed as
-part of the [KorAP](http://korap.ids-mannheim.de/)
+part of the L<KorAP|https://korap.ids-mannheim.de/>
 Corpus Analysis Platform at the
-[Institute for the German Language (IDS)](http://ids-mannheim.de/),
+L<Institute for the German Language (IDS)|http://ids-mannheim.de/>,
 member of the
-[Leibniz-Gemeinschaft](http://www.leibniz-gemeinschaft.de/en/about-us/leibniz-competition/projekte-2011/2011-funding-line-2/).
+L<Leibniz-Gemeinschaft|http://www.leibniz-gemeinschaft.de/en/about-us/leibniz-competition/projekte-2011/2011-funding-line-2/>.
 
 This program is free software, you can redistribute it
 and/or modify it under the terms of the Artistic License version 2.0.
