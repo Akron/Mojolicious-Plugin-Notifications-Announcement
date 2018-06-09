@@ -85,21 +85,28 @@ like($action, qr!/confirm\?aid=ann-2018-05-24!, 'Path is correct');
 is(scalar @ok, 0, 'No ok');
 is(scalar @cancel, 0, 'No canceled');
 
+
 # Get is not supported
 $t->get_ok($action)
   ->status_is(404)
   ;
 
 # Confirmation request still valid
-$t->get_ok('/')
+my $csrf = $t->get_ok('/')
   ->status_is(200)
   ->text_is('div.notify-confirm', 'Please confirm!')
   ->text_is('div.notify-confirm form[method=post] button.ok', 'OK')
   ->element_exists_not('div.notify-confirm form[method=post] button.cancel')
+  ->tx->res->dom('input[name=csrf_token]')->[0]->attr('value')
   ;
 
 # Post is supported
 $t->post_ok($action)
+  ->status_is(400)
+  ;
+
+# Post is supported
+$t->post_ok($action => form => { csrf_token => $csrf})
   ->status_is(200)
   ->content_is('Announcement confirmed')
   ;

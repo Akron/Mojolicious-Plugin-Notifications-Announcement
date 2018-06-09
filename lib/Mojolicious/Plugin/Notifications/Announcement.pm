@@ -7,7 +7,8 @@ use List::Util qw/none/;
 our $VERSION = '0.03';
 
 # TODO:
-#   Enhance with CSRF token!
+#   Establish a single announcements shortcut
+#   and use parameters for confirmation/cancelation.
 
 # TODO:
 #   Accept ok, ok_label, cancel, cancel_label to override in
@@ -47,17 +48,38 @@ sub register {
   # Predefine confirmation route as it is used twice
   my $confirmation_route = sub {
     my $c = shift;
-    my $ann_id = $c->param('aid');
 
+    my $v = $c->validation;
+    $v->required('aid');
+    $v->csrf_protect;
+
+    # TODO:
+    #   Use respond_to
     # Method needs to be post
     if ($c->req->method ne 'POST') {
-
-      # TODO: Correct error message
-      $c->render(
-        status => 200,
-        text => 'Announcement confirmation requires POST'
+      return $c->render(
+        status => 405,
+        text => 'Confirmation needs to be POST request'
       );
     };
+
+    # Check aid or CSRF token
+    if ($v->has_error('aid')) {
+      return $c->render(
+        status => 400,
+        text => 'Invalid announcement parameter passed'
+      );
+    };
+
+    if ($v->has_error('csrf_token')) {
+      return $c->render(
+        status => 400,
+        text => 'CSRF attack assumed'
+      );
+    };
+
+    # Get annotation id
+    my $ann_id = $v->param('aid');
 
     # Is the announcement confirmed or canceled
     my $confirmed = $c->stash('confirmed');
