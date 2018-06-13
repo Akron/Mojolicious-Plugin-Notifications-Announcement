@@ -1,3 +1,7 @@
+0.04 2018-06-13
+        - Simplify to a single announcement
+          shortcut.
+
 0.03 2018-06-07
         - Deprecated after_announcement hook
           in favor of after_announcement_ok hook.

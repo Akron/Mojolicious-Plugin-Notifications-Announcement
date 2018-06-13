@@ -4,15 +4,14 @@ use Mojo::Util qw/b64_encode sha1_sum trim/;
 use Mojo::ByteStream 'b';
 use List::Util qw/none/;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 # TODO:
-#   Establish a single announcements shortcut
-#   and use parameters for confirmation/cancelation.
+#   Accept 'ok', 'ok_label', 'cancel', 'cancel_label',
+#   'confirm' to override in confirmation announcements.
 
 # TODO:
-#   Accept ok, ok_label, cancel, cancel_label to override in
-#   confirmation announcements. These however also needs to be templates to
+#   ok_labelThese however also needs to be templates to
 #   support localization.
 
 # TODO:
@@ -28,7 +27,7 @@ sub register {
 
   $anns ||= [];
 
-  my ($ok_route, $cancel_route);
+  my $conf_route;
 
   # Load parameter from Config file
   if (my $config_anns = $app->config('Notifications-Announcement')) {
@@ -44,62 +43,6 @@ sub register {
 
   # This is a separate hash to access announcements by id
   my %ann_by_id;
-
-  # Predefine confirmation route as it is used twice
-  my $confirmation_route = sub {
-    my $c = shift;
-
-    my $v = $c->validation;
-    $v->required('aid');
-    $v->csrf_protect;
-
-    # TODO:
-    #   Use respond_to
-    # Method needs to be post
-    if ($c->req->method ne 'POST') {
-      return $c->render(
-        status => 405,
-        text => 'Confirmation needs to be POST request'
-      );
-    };
-
-    # Check aid or CSRF token
-    if ($v->has_error('aid')) {
-      return $c->render(
-        status => 400,
-        text => 'Invalid announcement parameter passed'
-      );
-    };
-
-    if ($v->has_error('csrf_token')) {
-      return $c->render(
-        status => 400,
-        text => 'CSRF attack assumed'
-      );
-    };
-
-    # Get annotation id
-    my $ann_id = $v->param('aid');
-
-    # Is the announcement confirmed or canceled
-    my $confirmed = $c->stash('confirmed');
-
-    # Check for annotation based on id
-    my $ann = $ann_by_id{$ann_id};
-
-    # There is an annotation defined by that id ...
-    if ($ann) {
-      $c->app->plugins->emit_hook(
-        'after_announcement_' . ($confirmed ? 'ok' : 'cancel') => ($c, $ann)
-      );
-    };
-
-    # ... otherwise ignore!
-    $c->render(
-      status => 200,
-      text => 'Announcement ' . ($confirmed ? 'confirmed' : 'canceled')
-    );
-  };
 
   # Create a short hash based id for the announcement, if not yet defined
   for (my $i = 0; $i < @$anns; $i++) {
@@ -136,13 +79,6 @@ sub register {
   $app->routes->add_shortcut(
     $route => sub {
       my $r = shift;
-      my $type = shift;
-
-      # Check names
-      if ($type ne 'ok' && $type ne 'cancel') {
-        $app->log->error("Undefined route type for $route");
-        return;
-      };
 
       # Check methods
       if (none { $_ =~ m!^POST$!i } @{$r->via}) {
@@ -151,22 +87,65 @@ sub register {
       };
 
       # Set name
-      $r = $r->name($route . '_' . $type);
+      $r = $r->name($route);
 
-      # Treat confirmation
-      if ($type eq 'ok') {
-        # Define confirmation route
-        $r->to(confirmed => 1, cb => $confirmation_route);
-        $ok_route = 1;
-      }
+      # Define confirmation route
+      $r->to(
+        cb => sub {
+          my $c = shift;
+          my $v = $c->validation;
+          $v->required('id');
+          $v->required('a')->in(qw/ok cancel/);
+          $v->csrf_protect;
 
-      # Treat cancellation
-      elsif ($type eq 'cancel') {
+          # TODO:
+          #   Use respond_to
+          # Method needs to be post
+          if ($c->req->method ne 'POST') {
+            return $c->render(
+              status => 405,
+              text => 'Confirmation needs to be POST request'
+            );
+          };
 
-        # Define cancelation route
-        $r->to(confirmed => 0, cb => $confirmation_route);
-        $cancel_route = 1;
-      };
+          # Check id or CSRF token
+          if ($v->has_error('id') || $v->has_error('a')) {
+            return $c->render(
+              status => 400,
+              text => 'Invalid announcement parameter passed'
+            );
+          };
+
+          if ($v->has_error('csrf_token')) {
+            return $c->render(
+              status => 400,
+              text => 'CSRF attack assumed'
+            );
+          };
+
+          # Get annotation id
+          my $ann_id = $v->param('id');
+
+          # Is the announcement confirmed or canceled
+          my $confirmed = $v->param('a') eq 'ok' ? 1 : 0;
+
+          # Check for annotation based on id
+          my $ann = $ann_by_id{$ann_id};
+
+          # There is an annotation defined by that id ...
+          if ($ann) {
+            $c->app->plugins->emit_hook(
+              'after_announcement_' . ($confirmed ? 'ok' : 'cancel') => ($c, $ann)
+            );
+          };
+
+          # ... otherwise ignore!
+          $c->render(
+            status => 200,
+            text => 'Announcement ' . ($confirmed ? 'confirmed' : 'canceled')
+          );
+        });
+      $conf_route = 1;
     }
   );
 
@@ -196,15 +175,18 @@ sub register {
           my $r = $c->app->routes;
 
           # Get ok route
-          $param{ok} = $c->url_for($route . '_ok')->query(aid => $ann->{id})->to_abs
-            if $ok_route;
+          if ($conf_route) {
+            $param{ok} = $c->url_for($route)
+              ->query(id => $ann->{id}, a => 'ok')->to_abs;
 
-          # Get cancel route
-          $param{cancel} = $c->url_for($route . '_cancel')->query(aid => $ann->{id})->to_abs
-            if $cancel_route;
+            # Get cancel route
+            $param{cancel} = $c->url_for($route)
+              ->query(id => $ann->{id}, a => 'cancel')->to_abs;
+          }
 
-          # The confirmation routes are not defined
-          if (!$param{ok} && !$param{cancel}) {
+          else {
+
+            # The confirmation routes are not defined
             $c->app->log->error('Confirmation routes undefined for ' . __PACKAGE__);
             return;
           };
@@ -262,12 +244,15 @@ Mojolicious::Plugin::Notifications::Announcement - Frontend Service Announcement
     msg => 'We have a new feature, <%= stash 'user_name' %>!'
   }];
 
+  # Establish confirmation route
+  post('/announce')->announcements;
+
   # Check if announcement was already read
-  callback check_announcement => sub {
+  app->callback(check_announcement => sub {
     my ($c, $ann) = @_;
     return 1 if $c->session('read-' . $ann->{id});
     return;
-  };
+  });
 
   # Confirm that the announcement was read
   hook after_announcement_ok => sub {
@@ -376,13 +361,10 @@ with all parameters, at least C<msg> and C<id>.
 =head2 announcements
 
   # In Mojolicious::Lite
-  post('/confirm/ok')->announcements('ok');
-  post('/confirm/cancel')->announcements('cancel');
+  post('/confirm')->announcements;
 
 Establish announcement routes for confirmation
 and cancellation of announcements requiring confirmation.
-Accepts the route type as a string parameter
-(either C<ok> or C<cancel>).
 
 The shortcut requires routes that accept the C<POST> method.
 
@@ -407,7 +389,9 @@ part of the L<KorAP|https://korap.ids-mannheim.de/>
 Corpus Analysis Platform at the
 L<Institute for the German Language (IDS)|http://ids-mannheim.de/>,
 member of the
-L<Leibniz-Gemeinschaft|http://www.leibniz-gemeinschaft.de/en/about-us/leibniz-competition/projekte-2011/2011-funding-line-2/>.
+L<Leibniz Association|https://www.leibniz-gemeinschaft.de/en/home/>.
+
+
 
 This program is free software, you can redistribute it
 and/or modify it under the terms of the Artistic License version 2.0.

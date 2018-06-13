@@ -65,12 +65,12 @@ $t->get_ok('/')
 like($loglines, qr/undefined/);
 $loglines = '';
 
-get('/confirm')->announcements('ok');
+get('/confirm')->announcements;
 
 like($loglines, qr/needs to support POST/);
 $loglines = '';
 
-post('/confirm')->announcements('ok');
+post('/confirm')->announcements;
 
 ok(!$loglines);
 
@@ -80,11 +80,10 @@ my $action = $t->get_ok('/')
   ->text_is('div.notify-confirm form[method=post] button', 'OK')
   ->tx->res->dom->at('form')->attr('action');
 
-like($action, qr!/confirm\?aid=ann-2018-05-24!, 'Path is correct');
+like($action, qr!/confirm\?id=ann-2018-05-24!, 'Path is correct');
 
 is(scalar @ok, 0, 'No ok');
 is(scalar @cancel, 0, 'No canceled');
-
 
 # Get is not supported
 $t->get_ok($action)
@@ -96,7 +95,7 @@ my $csrf = $t->get_ok('/')
   ->status_is(200)
   ->text_is('div.notify-confirm', 'Please confirm!')
   ->text_is('div.notify-confirm form[method=post] button.ok', 'OK')
-  ->element_exists_not('div.notify-confirm form[method=post] button.cancel')
+  ->text_is('div.notify-confirm form[method=post] button.cancel', 'Cancel')
   ->tx->res->dom('input[name=csrf_token]')->[0]->attr('value')
   ;
 
@@ -104,6 +103,7 @@ my $csrf = $t->get_ok('/')
 $t->post_ok($action)
   ->status_is(400)
   ;
+
 
 # Post is supported
 $t->post_ok($action => form => { csrf_token => $csrf})
