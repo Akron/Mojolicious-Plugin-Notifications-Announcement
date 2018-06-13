@@ -1,6 +1,7 @@
 0.04 2018-06-13
         - Simplify to a single announcement
           shortcut.
+        - Add default confirmation path.
 
 0.03 2018-06-07
         - Deprecated after_announcement hook

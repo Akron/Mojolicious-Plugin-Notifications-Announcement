@@ -174,22 +174,26 @@ sub register {
 
           my $r = $c->app->routes;
 
-          # Get ok route
-          if ($conf_route) {
-            $param{ok} = $c->url_for($route)
-              ->query(id => $ann->{id}, a => 'ok')->to_abs;
+          # Check for confirmation route
+          unless ($conf_route) {
 
-            # Get cancel route
-            $param{cancel} = $c->url_for($route)
-              ->query(id => $ann->{id}, a => 'cancel')->to_abs;
-          }
-
-          else {
+            # Default confirmation path
+            my $path = '/announcements/confirm';
 
             # The confirmation routes are not defined
-            $c->app->log->error('Confirmation routes undefined for ' . __PACKAGE__);
-            return;
+            $c->app->log->info(
+              'Create confirmation route under ' . $path
+              );
+            $r->post($path)->announcements;
+            $conf_route = 1;
           };
+
+          $param{ok} = $c->url_for($route)
+            ->query(id => $ann->{id}, a => 'ok')->to_abs;
+
+          # Get cancel route
+          $param{cancel} = $c->url_for($route)
+            ->query(id => $ann->{id}, a => 'cancel')->to_abs;
 
           # Send notification
           $c->notify($type => \%param => $msg);
@@ -363,10 +367,12 @@ with all parameters, at least C<msg> and C<id>.
   # In Mojolicious::Lite
   post('/confirm')->announcements;
 
-Establish announcement routes for confirmation
-and cancellation of announcements requiring confirmation.
+Establish route for confirmation and cancellation of announcements
+requiring confirmation.
 
 The shortcut requires routes that accept the C<POST> method.
+
+If no shortcut is defined, the default route is C</announcements/confirm>.
 
 
 =head1 DEPENDENCIES

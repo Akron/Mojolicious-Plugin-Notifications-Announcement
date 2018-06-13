@@ -57,14 +57,13 @@ app->log->on(
 
 my $t = Test::Mojo->new;
 
+# Take default route
 $t->get_ok('/')
   ->status_is(200)
-  ->content_is("\n")
+  ->content_like(qr!/announcements/confirm!)
   ;
 
-like($loglines, qr/undefined/);
-$loglines = '';
-
+# Name overrides old path
 get('/confirm')->announcements;
 
 like($loglines, qr/needs to support POST/);
