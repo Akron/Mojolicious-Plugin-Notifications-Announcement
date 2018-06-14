@@ -1,25 +1,31 @@
 package Mojolicious::Plugin::Notifications::Announcement;
 use Mojo::Base 'Mojolicious::Plugin';
-use Mojo::Util qw/b64_encode sha1_sum trim/;
+use Mojo::Util qw/b64_encode sha1_sum/;
 use Mojo::ByteStream 'b';
 use List::Util qw/none/;
 
 our $VERSION = '0.04';
 
 # TODO:
-#   Accept 'ok', 'ok_label', 'cancel', 'cancel_label',
-#   'confirm' to override in confirmation announcements.
+#   Accept 'ok', 'cancel', 'confirm'
+#   to override in confirmation announcements.
 
 # TODO:
-#   ok_labelThese however also needs to be templates to
-#   support localization.
+#   Establish confirmation endpoint for JSON!
 
 # TODO:
-#   - 'seen'
-#     requires the announcement to be displayed
-#     to the user (ensured via JS) and then POSTed to the confirmation endpoint
-#     -> How can this be done? A javascript needs to send a POST
-#        to the confirmation route
+#   Redirect in HTML responses!
+
+# TODO:
+#   Render error templates instead of text. The default template
+#   may be overwritten.
+
+# TODO:
+#   'seen'
+#   requires the announcement to be displayed
+#   to the user (ensured via JS) and then POSTed to the confirmation endpoint
+#   -> How can this be done? A javascript needs to send a POST
+#      to the confirmation route
 
 # Register the plugin
 sub register {
@@ -195,7 +201,7 @@ sub register {
 
         # Render inline template
         my $msg = $c->include(inline => $ann->{msg});
-        $msg = trim $msg if $msg;
+        $msg = $msg->trim if $msg;
 
         my $type = $ann->{type} // 'announce';
 

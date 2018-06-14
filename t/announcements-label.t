@@ -12,7 +12,7 @@ plugin 'Notifications' => {
 plugin 'Notifications::Announcement' => [
   {
     id => 'ann-2018-05-24',
-    msg => 'Please confirm!',
+    msg => '<p class="msg">Please confirm!</p>',
     type => 'confirm',
     ok_label => "<%= stash 'ok' %>",
     cancel_label => "<%= stash 'cancel' %>"
@@ -35,6 +35,7 @@ my $t = Test::Mojo->new;
 $t->get_ok('/')
   ->status_is(200)
   ->content_like(qr!/announcements/confirm!)
+  ->text_is('p.msg', 'Please confirm!')
   ->text_is('button.ok','fine!')
   ->text_is('button.cancel','later!')
   ;
