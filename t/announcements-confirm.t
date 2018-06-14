@@ -86,8 +86,7 @@ is(scalar @cancel, 0, 'No canceled');
 
 # Get is not supported
 $t->get_ok($action)
-  ->status_is(404)
-  ;
+  ->status_is(404);
 
 # Confirmation request still valid
 my $csrf = $t->get_ok('/')
@@ -98,16 +97,23 @@ my $csrf = $t->get_ok('/')
   ->tx->res->dom('input[name=csrf_token]')->[0]->attr('value')
   ;
 
-# Post is supported
+# Post is supported - but attack assumed
 $t->post_ok($action)
   ->status_is(400)
+  ->content_is('CSRF attack assumed')
+  ;
+
+# Post is supported - but attack assumed with JSON
+$t->post_ok($action . '&format=json')
+  ->status_is(400)
+  ->json_is('/notifications/0/1', 'CSRF attack assumed')
   ;
 
 
 # Post is supported
 $t->post_ok($action => form => { csrf_token => $csrf})
   ->status_is(200)
-  ->content_is('Announcement confirmed')
+  ->content_is('Announcement ok')
   ;
 
 is(scalar @ok, 1, '1 ok');

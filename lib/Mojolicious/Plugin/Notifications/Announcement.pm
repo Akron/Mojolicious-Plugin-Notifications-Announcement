@@ -98,28 +98,45 @@ sub register {
           $v->required('a')->in(qw/ok cancel/);
           $v->csrf_protect;
 
-          # TODO:
-          #   Use respond_to
           # Method needs to be post
+          my $status;
+          my $msg;
+
+          # Check for errors
           if ($c->req->method ne 'POST') {
-            return $c->render(
-              status => 405,
-              text => 'Confirmation needs to be POST request'
-            );
-          };
+            $status = 405;
+            $msg = 'Confirmation needs to be POST request';
+          }
+          elsif ($v->has_error('id') || $v->has_error('a')) {
+            $status = 400;
+            $msg = 'Invalid announcement parameter passed';
+          }
 
           # Check id or CSRF token
-          if ($v->has_error('id') || $v->has_error('a')) {
-            return $c->render(
-              status => 400,
-              text => 'Invalid announcement parameter passed'
-            );
+          elsif ($v->has_error('csrf_token')) {
+            $status = 400;
+            $msg = 'CSRF attack assumed';
           };
 
-          if ($v->has_error('csrf_token')) {
-            return $c->render(
-              status => 400,
-              text => 'CSRF attack assumed'
+          # An error occured
+          if ($status) {
+
+            # Return error
+            # TODO:
+            #   This may use something like notify_json
+            # TODO:
+            #   This may redirect to the referrer page for HTML
+            return $c->respond_to(
+              any => {
+                status => $status,
+                text => $msg
+              },
+              json => {
+                status => $status,
+                json => {
+                  notifications => [['error', $msg]]
+                }
+              }
             );
           };
 
@@ -127,7 +144,7 @@ sub register {
           my $ann_id = $v->param('id');
 
           # Is the announcement confirmed or canceled
-          my $confirmed = $v->param('a') eq 'ok' ? 1 : 0;
+          my $confirmed = $v->param('a');
 
           # Check for annotation based on id
           my $ann = $ann_by_id{$ann_id};
@@ -135,14 +152,28 @@ sub register {
           # There is an annotation defined by that id ...
           if ($ann) {
             $c->app->plugins->emit_hook(
-              'after_announcement_' . ($confirmed ? 'ok' : 'cancel') => ($c, $ann)
+              'after_announcement_' . $confirmed => ($c, $ann)
             );
           };
 
-          # ... otherwise ignore!
-          $c->render(
-            status => 200,
-            text => 'Announcement ' . ($confirmed ? 'confirmed' : 'canceled')
+          $status = 200;
+          $msg = 'Announcement ' . $confirmed;
+
+          # TODO:
+          #   This may use something like notify_json
+          # TODO:
+          #   This may redirect to the referrer page for HTML
+          $c->respond_to(
+            any => {
+              status => 200,
+              text => $msg
+            },
+            json => {
+              status => $status,
+              json => {
+                notifications => [['info', $msg]]
+              }
+            }
           );
         });
       $conf_route = 1;
@@ -248,9 +279,6 @@ Mojolicious::Plugin::Notifications::Announcement - Frontend Service Announcement
     msg => 'We have a new feature, <%= stash 'user_name' %>!'
   }];
 
-  # Establish confirmation route
-  post('/announce')->announcements;
-
   # Check if announcement was already read
   app->callback(check_announcement => sub {
     my ($c, $ann) = @_;
@@ -303,7 +331,7 @@ file with the key C<Notifications-Announcement> or on registration
 Announcements are ensured to have a valid C<id> information as well.
 If not set, it will be added as a checksum of all announcement attributes.
 
-Further attributes can be set and will be passed to the callbacks.
+Further attributes can be set and will be passed to the callback and the hooks.
 The C<type> attribute will be used as the notification type to
 L<Mojolicious::Plugin::Notifications/notify> and defaults to C<announce>.
 
@@ -323,7 +351,7 @@ In case the type is C<confirm>, confirmation routes will be established.
 
 This callback is released to check if an announcement should
 be served or not. Expects a positive
-return value, if the announcement should not be served
+return value, if the announcement should I<not> be served
 (e.g. because it already was served to the user),
 otherwise it is send.
 Passes the current controller and the announcement object
@@ -367,7 +395,7 @@ with all parameters, at least C<msg> and C<id>.
   # In Mojolicious::Lite
   post('/confirm')->announcements;
 
-Establish route for confirmation and cancellation of announcements
+Establish for route for confirmation and cancellation of announcements
 requiring confirmation.
 
 The shortcut requires routes that accept the C<POST> method.
@@ -396,8 +424,6 @@ Corpus Analysis Platform at the
 L<Institute for the German Language (IDS)|http://ids-mannheim.de/>,
 member of the
 L<Leibniz Association|https://www.leibniz-gemeinschaft.de/en/home/>.
-
-
 
 This program is free software, you can redistribute it
 and/or modify it under the terms of the Artistic License version 2.0.
