@@ -219,12 +219,28 @@ sub register {
             $conf_route = 1;
           };
 
+          # Get ok route
           $param{ok} = $c->url_for($route)
             ->query(id => $ann->{id}, a => 'ok')->to_abs;
 
           # Get cancel route
           $param{cancel} = $c->url_for($route)
             ->query(id => $ann->{id}, a => 'cancel')->to_abs;
+
+          # There is a label for okay
+          if ($ann->{ok_label}) {
+
+            # Render inline template
+            my $ok_label = $c->include(inline => $ann->{ok_label});
+            $param{ok_label} = trim $ok_label if $ok_label;
+          };
+
+          if ($ann->{cancel_label}) {
+
+            # Render inline template
+            my $cancel_label = $c->include(inline => $ann->{cancel_label});
+            $param{cancel_label} = trim $cancel_label if $cancel_label;
+          };
 
           # Send notification
           $c->notify($type => \%param => $msg);
@@ -336,6 +352,12 @@ The C<type> attribute will be used as the notification type to
 L<Mojolicious::Plugin::Notifications/notify> and defaults to C<announce>.
 
 In case the type is C<confirm>, confirmation routes will be established.
+
+For C<confirm> types, the parameters C<ok_label> and C<cancel_label>
+are supported, to change the button labels for confirmations,
+in case the L<Mojolicious::Plugin::Notifications> engine supports them.
+In addition to plain text, these labels are treated as inline
+L<Mojo::Template>s.
 
 
 =head1 CALLBACKS

@@ -1,7 +1,8 @@
-0.04 2018-06-13
+0.04 2018-06-14
         - Simplify to a single announcement
           shortcut.
         - Add default confirmation path.
+        - Support ok_label and cancel_label.
 
 0.03 2018-06-07
         - Deprecated after_announcement hook
