@@ -21,6 +21,9 @@ our $VERSION = '0.04';
 #   may be overwritten.
 
 # TODO:
+#   Warn in case an ID contains a comma.
+
+# TODO:
 #   'seen'
 #   requires the announcement to be displayed
 #   to the user (ensured via JS) and then POSTed to the confirmation endpoint
@@ -29,16 +32,42 @@ our $VERSION = '0.04';
 
 # Register the plugin
 sub register {
-  my ($plugin, $app, $anns) = @_;
+  my ($plugin, $app, $param) = @_;
 
-  $anns ||= [];
+  my $anns;
+  if ($param && ref $param) {
 
-  my $conf_route;
+    # Parameters defined as a hash
+    if (ref $param eq 'HASH') {
+      $anns = delete $param->{announcements} // [];
+    }
+
+    # Only annotations defined
+    elsif (ref $param eq 'ARRAY') {
+      $anns = $param;
+      $param = {};
+    }
+  }
+
+  # No annotatioms defined yet
+  else {
+    $anns = [];
+    $param = {};
+  };
 
   # Load parameter from Config file
-  if (my $config_anns = $app->config('Notifications-Announcement')) {
-    push @$anns, @$config_anns;
+  if (my $config_param = $app->config('Notifications-Announcement')) {
+
+    if (ref $config_param eq 'HASH') {
+      push @$anns, @{delete $config_param->{annotations}} if $config_param->{annotations};
+      $param = { %$param, %$config_param };
+    }
+    elsif (ref $config_param eq 'ARRAY') {
+      push @$anns, @$config_param;
+    };
   };
+
+  my $conf_route;
 
   # Get helpers object
   my $helpers = $app->renderer->helpers;
@@ -331,26 +360,32 @@ B<WARNING: This module is still in early development - don't use it for now!>
 =head2 register
 
   # Mojolicious
-  $app->plugin('Notifications::Announcement' => [
-    {
-      msg => 'We have a new feature, <%= stash 'user_name' %>!'
-    },
-    {
-      msg => 'We have updated our privacy policy!',
-      type => 'confirm'
-    }
-  ]);
+  $app->plugin('Notifications::Announcement' => {
+    announcements => [
+      {
+        msg => 'We have a new feature, <%= stash 'user_name' %>!'
+      },
+      {
+        msg => 'We have updated our privacy policy!',
+        type => 'confirm'
+      }
+    ]
+  });
 
 Called when registering the plugin.
 
-Accepts an optional array of announcements, that at least require a C<msg>
-field, that is treated as an inline L<Mojo::Template>.
+Accepts an optional hash of parameters or an array of announcements.
+If passed as a hash, announcements may be listed with the key
+C<announcements>.
 
-Announcements can be set as part of the configuration
+Parameters or announcements can be set as part of the configuration
 file with the key C<Notifications-Announcement> or on registration
-(that will be merged with the announcement list from the configuration).
+(that will be overwritten in case of parameters and merged in case of announcements
+from the configuration).
 
-Announcements are ensured to have a valid C<id> information as well.
+Announcements at least require a C<msg> field, that is treated as an
+inline L<Mojo::Template>.
+They are also ensured to have a valid C<id> information.
 If not set, it will be added as a checksum of all announcement attributes.
 
 Further attributes can be set and will be passed to the callback and the hooks.

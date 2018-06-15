@@ -9,15 +9,17 @@ plugin 'Notifications' => {
 };
 
 # Load on registration
-plugin 'Notifications::Announcement' => [
-  {
-    id => 'ann-2018-05-24',
-    msg => '<p class="msg">Please confirm!</p>',
-    type => 'confirm',
-    ok_label => "<%= stash 'ok' %>",
-    cancel_label => "<%= stash 'cancel' %>"
-  }
-];
+plugin 'Notifications::Announcement' => {
+  announcements => [
+    {
+      id => 'ann-2018-05-24',
+      msg => '<p class="msg">Please confirm!</p>',
+      type => 'confirm',
+      ok_label => "<%= stash 'ok' %>",
+      cancel_label => "<%= stash 'cancel' %>"
+    }
+  ]
+};
 
 # Example route
 get '/' => sub {

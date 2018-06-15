@@ -3,6 +3,7 @@
           shortcut.
         - Add default confirmation path.
         - Support ok_label and cancel_label.
+        - Accept hash and array configurations.
 
 0.03 2018-06-07
         - Deprecated after_announcement hook
