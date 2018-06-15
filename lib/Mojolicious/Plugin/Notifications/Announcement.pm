@@ -1,6 +1,6 @@
 package Mojolicious::Plugin::Notifications::Announcement;
 use Mojo::Base 'Mojolicious::Plugin';
-use Mojo::Util qw/b64_encode sha1_sum/;
+use Mojo::Util qw/b64_encode md5_sum/;
 use Mojo::ByteStream 'b';
 use List::Util qw/none/;
 
@@ -59,11 +59,11 @@ sub register {
   if (my $config_param = $app->config('Notifications-Announcement')) {
 
     if (ref $config_param eq 'HASH') {
-      push @$anns, @{delete $config_param->{annotations}} if $config_param->{annotations};
+      unshift @$anns, @{delete $config_param->{annotations}} if $config_param->{annotations};
       $param = { %$param, %$config_param };
     }
     elsif (ref $config_param eq 'ARRAY') {
-      push @$anns, @$config_param;
+      unshift @$anns, @$config_param;
     };
   };
 
@@ -101,7 +101,7 @@ sub register {
       };
 
       # Add hash based id to announcement
-      $ann->{id} = sha1_sum($str);
+      $ann->{id} = md5_sum($str);
     };
 
     # Remember the id
@@ -306,6 +306,42 @@ sub register {
         };
       };
     }) if @$anns;
+
+
+    # Check for announcement
+  $app->helper(
+    'announcement.session_check' => sub {
+      my ($c, $id) = @_;
+      my $string = $c->session('a!.a') or return;
+      return b($string)->split(',')->first(
+        sub {
+          $_ eq $id
+        }) ? 1 : 0;
+    }
+  );
+
+  # Store for announcements
+  $app->helper(
+    'announcement.session_store' => sub {
+      my ($c, $id) = @_;
+
+      # Store in session
+      my $ann = $c->session('a!.a');
+      if ($ann) {
+        my $coll = b($ann)->split(',');
+
+        # Session is already stored
+        return if $coll->first(sub { $_ eq $id });
+
+        # Append to store
+        $ann .= ',' . $id;
+      }
+      else {
+        $ann = $id;
+      };
+      $c->session('a!.a' => $ann);
+    }
+  );
 };
 
 
@@ -360,17 +396,15 @@ B<WARNING: This module is still in early development - don't use it for now!>
 =head2 register
 
   # Mojolicious
-  $app->plugin('Notifications::Announcement' => {
-    announcements => [
-      {
-        msg => 'We have a new feature, <%= stash 'user_name' %>!'
-      },
-      {
-        msg => 'We have updated our privacy policy!',
-        type => 'confirm'
-      }
-    ]
-  });
+  $app->plugin('Notifications::Announcement' => [
+    {
+      msg => 'We have a new feature, <%= stash 'user_name' %>!'
+    },
+    {
+      msg => 'We have updated our privacy policy!',
+      type => 'confirm'
+    }
+  ]);
 
 Called when registering the plugin.
 
@@ -464,6 +498,38 @@ requiring confirmation.
 The shortcut requires routes that accept the C<POST> method.
 
 If no shortcut is defined, the default route is C</announcements/confirm>.
+
+
+=head1 HELPERS
+
+=head2 announcement.session_store
+
+  hook after_announcement_cancel => sub {
+    my ($c, $ann) = @_;
+
+    # Ignore until the browser closes
+    $c->announcement->session_store($ann->{id});
+  };
+
+Store the announcement in the session, e.g. to bother
+the user no longer after the cancellation of a confirmation
+announcement.
+
+
+=head2 announcement.session_check
+
+  app->callback(
+    check_announcement => sub {
+      my ($c, $ann) = @_;
+
+      # Check session
+      return 1 if $c->announcement->session_check($ann->{id});
+      ...
+    }
+  );
+
+Check, if an announcement was stored in the session, e.g.
+to cache database lookups.
 
 
 =head1 DEPENDENCIES

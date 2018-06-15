@@ -64,10 +64,10 @@ my $t = Test::Mojo->new;
 # First call with announcements
 $t->get_ok('/')
   ->json_is('/msg', 'Hello!')
-  ->json_is('/notifications/0/0', 'info')
-  ->json_is('/notifications/0/1', 'Dear Akron, we want to inform you ...')
-  ->json_is('/notifications/1/0', 'announce')
-  ->json_is('/notifications/1/1', 'Dear user, first')
+  ->json_is('/notifications/0/0', 'announce')
+  ->json_is('/notifications/0/1', 'Dear user, first')
+  ->json_is('/notifications/1/0', 'info')
+  ->json_is('/notifications/1/1', 'Dear Akron, we want to inform you ...')
   ;
 
 # Second call without announcements

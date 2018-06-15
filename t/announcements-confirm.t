@@ -21,7 +21,7 @@ plugin 'Notifications::Announcement' => [
 app->callback(
   check_announcement => sub {
     my ($c, $ann) = @_;
-    return 1 if $c->session('n!' . $ann->{id});
+    return 1 if $c->announcement->session_check($ann->{id});
     return;
   });
 
@@ -29,7 +29,7 @@ my (@cancel, @ok) = ();
 
 hook after_announcement_ok => sub {
   my ($c, $ann) = @_;
-  $c->session('n!' . $ann->{id} => 1);
+  $c->announcement->session_store($ann->{id});
   push @ok, $ann->{id};
   return;
 };

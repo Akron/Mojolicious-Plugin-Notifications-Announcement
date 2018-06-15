@@ -1,9 +1,12 @@
-0.04 2018-06-14
+0.04 2018-06-15
         - Simplify to a single announcement
           shortcut.
         - Add default confirmation path.
         - Support ok_label and cancel_label.
         - Accept hash and array configurations.
+        - Make order of announcements explicit.
+        - Introduce announcement.session_store and
+          announcement.session_check helpers.
 
 0.03 2018-06-07
         - Deprecated after_announcement hook
