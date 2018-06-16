@@ -21,6 +21,8 @@ plugin 'Notifications::Announcement' => {
   ]
 };
 
+post('/announcements/confirm')->announcements;
+
 # Example route
 get '/' => sub {
   my $c = shift;
@@ -34,13 +36,19 @@ get '/' => sub {
 my $t = Test::Mojo->new;
 
 # Take default route
-$t->get_ok('/')
+my $tx = $t->get_ok('/')
   ->status_is(200)
   ->content_like(qr!/announcements/confirm!)
   ->text_is('p.msg', 'Please confirm!')
   ->text_is('button.ok','fine!')
   ->text_is('button.cancel','later!')
-  ;
+  ->tx;
+
+my $path = $tx->res->dom->at('form')->attr('action');
+my $csrf = $tx->res->dom->at('input[name=csrf_token]')->attr('value');
+
+$t->post_ok($path => form => { csrf_token => $csrf })
+  ->content_is('Announcement ok');
 
 done_testing;
 __END__

@@ -12,7 +12,7 @@ WriteMakefile(
     'Test::More' => 0
   },
   PREREQ_PM    => {
-    'Mojolicious' => '7.79',
+    'Mojolicious' => '7.80',
     'Mojolicious::Plugin::Util::Callback' => '0.05',
     'Mojolicious::Plugin::Notifications' => '1.03',
     'List::Util' => 0

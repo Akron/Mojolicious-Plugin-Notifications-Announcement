@@ -110,19 +110,16 @@ sub register {
 
 
   # Add announcements shortcut
-  my $route = 'announcements';
+  my $route_name = 'announcements';
   $app->routes->add_shortcut(
-    $route => sub {
+    $route_name => sub {
       my $r = shift;
 
       # Check methods
       if (none { $_ =~ m!^POST$!i } @{$r->via}) {
-        $app->log->error("Route method for $route needs to support POST");
+        $app->log->error("Route method for $route_name needs to support POST");
         return;
       };
-
-      # Set name
-      $r = $r->name($route);
 
       # Define confirmation route
       $r->to(
@@ -211,9 +208,12 @@ sub register {
             }
           );
         });
+
+      $r = $r->name($route_name);
       $conf_route = 1;
     }
   );
+
 
   # Use notifications hook to add notification
   $app->hook(
@@ -238,29 +238,19 @@ sub register {
         if ($type eq 'confirm') {
           my %param = ();
 
-          my $r = $c->app->routes;
-
-          # Check for confirmation route
+          # Route not defined
           unless ($conf_route) {
-
-            # Default confirmation path
-            my $path = '/announcements/confirm';
-
-            # The confirmation routes are not defined
-            $c->app->log->info(
-              'Create confirmation route under ' . $path
-              );
-            $r->post($path)->announcements;
-            $conf_route = 1;
+            $c->app->log->error('Confirmation route not defined');
+            next;
           };
 
+          my $url = $c->url_for($route_name);
+
           # Get ok route
-          $param{ok} = $c->url_for($route)
-            ->query(id => $ann->{id}, a => 'ok')->to_abs;
+          $param{ok} = $url->query(id => $ann->{id}, a => 'ok')->to_abs;
 
           # Get cancel route
-          $param{cancel} = $c->url_for($route)
-            ->query(id => $ann->{id}, a => 'cancel')->to_abs;
+          $param{cancel} = $url->query(id => $ann->{id}, a => 'cancel')->to_abs;
 
           # There is a label for okay
           if ($ann->{ok_label}) {
@@ -365,6 +355,8 @@ Mojolicious::Plugin::Notifications::Announcement - Frontend Service Announcement
   plugin 'Notifications::Announcement' => [{
     msg => 'We have a new feature, <%= stash 'user_name' %>!'
   }];
+
+  post('/announcement/confirm')->announcements;
 
   # Check if announcement was already read
   app->callback(check_announcement => sub {
@@ -492,12 +484,13 @@ with all parameters, at least C<msg> and C<id>.
   # In Mojolicious::Lite
   post('/confirm')->announcements;
 
-Establish for route for confirmation and cancellation of announcements
+Establish route for confirmation and cancellation of announcements
 requiring confirmation.
 
 The shortcut requires routes that accept the C<POST> method.
 
-If no shortcut is defined, the default route is C</announcements/confirm>.
+If no shortcut is defined, confirmation announcements
+can't be served.
 
 
 =head1 HELPERS

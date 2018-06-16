@@ -60,7 +60,7 @@ my $t = Test::Mojo->new;
 # Take default route
 $t->get_ok('/')
   ->status_is(200)
-  ->content_like(qr!/announcements/confirm!)
+  ->content_is("\n")
   ;
 
 # Name overrides old path
@@ -79,7 +79,7 @@ my $action = $t->get_ok('/')
   ->text_is('div.notify-confirm form[method=post] button', 'OK')
   ->tx->res->dom->at('form')->attr('action');
 
-like($action, qr!/confirm\?id=ann-2018-05-24!, 'Path is correct');
+like($action, qr!\/confirm\?id=ann-2018-05-24!, 'Path is correct');
 
 is(scalar @ok, 0, 'No ok');
 is(scalar @cancel, 0, 'No canceled');

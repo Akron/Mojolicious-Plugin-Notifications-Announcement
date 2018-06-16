@@ -1,7 +1,8 @@
-0.04 2018-06-15
+0.04 2018-06-16
         - Simplify to a single announcement
           shortcut.
-        - Add default confirmation path.
+        - Add default confirmation path
+          (later removed).
         - Support ok_label and cancel_label.
         - Accept hash and array configurations.
         - Make order of announcements explicit.
