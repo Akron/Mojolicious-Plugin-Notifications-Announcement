@@ -8,6 +8,8 @@
         - Make order of announcements explicit.
         - Introduce announcement.session_store and
           announcement.session_check helpers.
+        - Removed deprecated set_announcement callback
+          and after_announcement hook.
 
 0.03 2018-06-07
         - Deprecated after_announcement hook

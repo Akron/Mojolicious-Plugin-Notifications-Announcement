@@ -14,7 +14,8 @@ our $VERSION = '0.04';
 #   Establish confirmation endpoint for JSON!
 
 # TODO:
-#   Redirect in HTML responses!
+#   Redirect in HTML responses! This would require
+#   closed redirect enhanced URLs!
 
 # TODO:
 #   Render error templates instead of text. The default template
@@ -278,18 +279,6 @@ sub register {
           $c->notify($type => $msg);
 
           # Set announcement to be read
-
-          # DEPRECATED!
-          $c->callback(
-            set_announcement => $ann
-          );
-
-          # DEPRECATED!
-          $c->app->plugins->emit_hook(
-            after_announcement => ($c, $ann)
-          );
-
-          # Immediately confirmed
           $c->app->plugins->emit_hook(
             after_announcement_ok => ($c, $ann)
           );
