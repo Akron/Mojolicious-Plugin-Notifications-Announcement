@@ -14,12 +14,14 @@ Mojolicious::Plugin::Notifications::Announcement - Frontend Service Announcement
     msg => 'We have a new feature, <%= stash 'user_name' %>!'
   }];
 
+  post('/announcement/confirm')->announcements;
+
   # Check if announcement was already read
-  callback check_announcement => sub {
+  app->callback(check_announcement => sub {
     my ($c, $ann) = @_;
     return 1 if $c->session('read-' . $ann->{id});
     return;
-  };
+  });
 
   # Confirm that the announcement was read
   hook after_announcement_ok => sub {
@@ -56,21 +58,31 @@ B<WARNING: This module is still in early development - don't use it for now!>
 
 Called when registering the plugin.
 
-Accepts an optional array of announcements, that at least require a C<msg>
-field, that is treated as an inline L<Mojo::Template>.
+Accepts an optional hash of parameters or an array of announcements.
+If passed as a hash, announcements may be listed with the key
+C<announcements>.
 
-Announcements can be set as part of the configuration
+Parameters or announcements can be set as part of the configuration
 file with the key C<Notifications-Announcement> or on registration
-(that will be merged with the announcement list from the configuration).
+(that will be overwritten in case of parameters and merged in case of announcements
+from the configuration).
 
-Announcements are ensured to have a valid C<id> information as well.
+Announcements at least require a C<msg> field, that is treated as an
+inline L<Mojo::Template>.
+They are also ensured to have a valid C<id> information.
 If not set, it will be added as a checksum of all announcement attributes.
 
-Further attributes can be set and will be passed to the callbacks.
+Further attributes can be set and will be passed to the callback and the hooks.
 The C<type> attribute will be used as the notification type to
 L<Mojolicious::Plugin::Notifications/notify> and defaults to C<announce>.
 
 In case the type is C<confirm>, confirmation routes will be established.
+
+For C<confirm> types, the parameters C<ok_label> and C<cancel_label>
+are supported, to change the button labels for confirmations,
+in case the L<Mojolicious::Plugin::Notifications> engine supports them.
+In addition to plain text, these labels are treated as inline
+L<Mojo::Template>s.
 
 
 =head1 CALLBACKS
@@ -86,7 +98,7 @@ In case the type is C<confirm>, confirmation routes will be established.
 
 This callback is released to check if an announcement should
 be served or not. Expects a positive
-return value, if the announcement should not be served
+return value, if the announcement should I<not> be served
 (e.g. because it already was served to the user),
 otherwise it is send.
 Passes the current controller and the announcement object
@@ -128,15 +140,47 @@ with all parameters, at least C<msg> and C<id>.
 =head2 announcements
 
   # In Mojolicious::Lite
-  post('/confirm/ok')->announcements('ok');
-  post('/confirm/cancel')->announcements('cancel');
+  post('/confirm')->announcements;
 
-Establish announcement routes for confirmation
-and cancellation of announcements requiring confirmation.
-Accepts the route type as a string parameter
-(either C<ok> or C<cancel>).
+Establish route for confirmation and cancellation of announcements
+requiring confirmation.
 
 The shortcut requires routes that accept the C<POST> method.
+
+If no shortcut is defined, confirmation announcements
+can't be served.
+
+
+=head1 HELPERS
+
+=head2 announcement.session_store
+
+  hook after_announcement_cancel => sub {
+    my ($c, $ann) = @_;
+
+    # Ignore until the browser closes
+    $c->announcement->session_store($ann->{id});
+  };
+
+Store the announcement in the session, e.g. to bother
+the user no longer after the cancellation of a confirmation
+announcement.
+
+
+=head2 announcement.session_check
+
+  app->callback(
+    check_announcement => sub {
+      my ($c, $ann) = @_;
+
+      # Check session
+      return 1 if $c->announcement->session_check($ann->{id});
+      ...
+    }
+  );
+
+Check, if an announcement was stored in the session, e.g.
+to cache database lookups.
 
 
 =head1 DEPENDENCIES
@@ -159,7 +203,7 @@ part of the L<KorAP|https://korap.ids-mannheim.de/>
 Corpus Analysis Platform at the
 L<Institute for the German Language (IDS)|http://ids-mannheim.de/>,
 member of the
-L<Leibniz-Gemeinschaft|http://www.leibniz-gemeinschaft.de/en/about-us/leibniz-competition/projekte-2011/2011-funding-line-2/>.
+L<Leibniz Association|https://www.leibniz-gemeinschaft.de/en/home/>.
 
 This program is free software, you can redistribute it
 and/or modify it under the terms of the Artistic License version 2.0.

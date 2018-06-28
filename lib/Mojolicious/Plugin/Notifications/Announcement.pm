@@ -16,6 +16,8 @@ our $VERSION = '0.04';
 # TODO:
 #   Redirect in HTML responses! This would require
 #   closed redirect enhanced URLs!
+#   Make it a 301 with a notification and a
+#   <meta http-equiv="refresh" content="5; URL=https://returnURL">
 
 # TODO:
 #   Render error templates instead of text. The default template
